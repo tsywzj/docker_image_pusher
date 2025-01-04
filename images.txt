@@ -11,8 +11,8 @@ cloudreve/cloudreve:latest
 lscr.io/linuxserver/homeassistant:latest
 ghcr.io/tecnativa/docker-socket-proxy:latest
 ghcr.io/gethomepage/homepage:latest
-ghcr.io/immich-app/immich-server
-ghcr.io/immich-app/immich-machine-learning
+ghcr.io/immich-app/immich-server:v1.123.0:-release
+ghcr.io/immich-app/immich-machine-learning:v1.123.0:-release -openvino
 linuxserver/jackett:latest
 nyanmisaka/jellyfin
 fallenbagel/jellyseerr:latest
