@@ -4,3 +4,21 @@ k8s.gcr.io/kube-state-metrics/kube-state-metrics:v2.0.0
 xhofe/alist:latest
 #支持指定架构
 --platform=linux/arm64 xiaoyaliu/alist
+lscr.io/linuxserver/calibre-web:latest
+lscr.io/linuxserver/calibre:latest
+allanpk716/chinesesubfinder:latest
+cloudreve/cloudreve:latest
+lscr.io/linuxserver/homeassistant:latest
+ghcr.io/tecnativa/docker-socket-proxy:latest
+ghcr.io/gethomepage/homepage:latest
+ghcr.io/immich-app/immich-server
+ghcr.io/immich-app/immich-machine-learning
+linuxserver/jackett:latest
+nyanmisaka/jellyfin
+fallenbagel/jellyseerr:latest
+jxxghp/moviepilot-v2
+lscr.io/linuxserver/qbittorrent
+lscr.io/linuxserver/resilio-sync
+linuxserver/transmission
+mzz2017/v2raya
+xiaoyaliu/alist
