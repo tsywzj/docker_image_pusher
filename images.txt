@@ -22,3 +22,4 @@ lscr.io/linuxserver/resilio-sync
 linuxserver/transmission
 mzz2017/v2raya
 xiaoyaliu/alist
+gdy666/lucky
