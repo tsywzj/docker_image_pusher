@@ -7,7 +7,8 @@ nginx
 # lscr.io/linuxserver/calibre-web:latest
 # lscr.io/linuxserver/calibre:latest
 allanpk716/chinesesubfinder:latest
-cloudreve/cloudreve:latest
+# cloudreve/cloudreve:latest
+cloudflare/cloudflared:latest
 lscr.io/linuxserver/homeassistant:latest
 ghcr.io/tecnativa/docker-socket-proxy:latest
 ghcr.io/gethomepage/homepage:latest
@@ -16,7 +17,7 @@ ghcr.io/gethomepage/homepage:latest
 # linuxserver/jackett:latest
 # nyanmisaka/jellyfin
 # fallenbagel/jellyseerr:latest
-jxxghp/moviepilot-v2
+# jxxghp/moviepilot-v2
 lscr.io/linuxserver/qbittorrent
 lscr.io/linuxserver/resilio-sync
 linuxserver/transmission
