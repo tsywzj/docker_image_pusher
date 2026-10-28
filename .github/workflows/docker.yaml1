@@ -1,0 +1,135 @@
+name: Docker Image Pusher (Skopeo Stream Mode)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - 'images.txt'
+      - '.github/workflows/docker.yaml'
+  workflow_dispatch:
+  # 如需定时同步，可取消下方注释（UTC 时间）
+  # schedule:
+  #   - cron: '0 18 * * *'
+
+jobs:
+  push_images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Skopeo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+
+      - name: Login to Aliyun Registry
+        env:
+          ALIYUN_REGISTRY: ${{ secrets.ALIYUN_REGISTRY }}
+          ALIYUN_REGISTRY_USER: ${{ secrets.ALIYUN_REGISTRY_USER }}
+          ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
+        run: |
+          echo "$ALIYUN_REGISTRY_PASSWORD" | skopeo login --username "$ALIYUN_REGISTRY_USER" --password-stdin "$ALIYUN_REGISTRY"
+
+      - name: Sync images via Skopeo (Zero Disk Usage)
+        env:
+          ALIYUN_REGISTRY: ${{ secrets.ALIYUN_REGISTRY }}
+          ALIYUN_NAME_SPACE: ${{ secrets.ALIYUN_NAME_SPACE }}
+        run: |
+          set -e
+
+          # 1. 预处理 images.txt，检测是否存在同名但不同命名空间的镜像（如 xhofe/alist 与 xiaoyaliu/alist）
+          declare -A image_name_count
+          declare -A duplicate_images
+
+          while IFS= read -r line || [ -n "$line" ]; do
+            # 去除首尾空格与回车符
+            line=$(echo "$line" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            # 跳过空行和注释
+            [[ -z "$line" || "$line" =~ ^# ]] && continue
+
+            # 提取镜像部分（去掉 --platform=xxx 参数）
+            image=$(echo "$line" | sed 's/--platform=[^[:space:]]*[[:space:]]*//g' | awk '{print $1}')
+            # 去掉 tag 获取纯路径
+            image_no_tag="${image%%:*}"
+            # 获取最后一级镜像名
+            base_name="${image_no_tag##*/}"
+
+            image_name_count["$base_name"]=$(( ${image_name_count["$base_name"]:-0} + 1 ))
+            if [ "${image_name_count["$base_name"]}" -gt 1 ]; then
+              duplicate_images["$base_name"]=1
+            fi
+          done < images.txt
+
+          # 2. 逐行流式同步镜像
+          while IFS= read -r line || [ -n "$line" ]; do
+            line=$(echo "$line" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            [[ -z "$line" || "$line" =~ ^# ]] && continue
+
+            echo "----------------------------------------"
+            echo "处理配置行: $line"
+
+            # 解析 --platform 参数
+            platform=""
+            if [[ "$line" =~ --platform=([^[:space:]]+) ]]; then
+              platform="${BASH_REMATCH[1]}"
+            fi
+
+            # 获取源镜像地址
+            src_image=$(echo "$line" | sed 's/--platform=[^[:space:]]*[[:space:]]*//g' | awk '{print $1}')
+
+            # 若未指定 tag，默认补充 :latest
+            if [[ "$src_image" != *:* ]]; then
+              src_image="${src_image}:latest"
+            fi
+
+            image_tag="${src_image##*:}"
+            image_no_tag="${src_image%%:*}"
+            base_name="${image_no_tag##*/}"
+
+            # 提取上级命名空间（用于重名镜像加前缀）
+            namespace_prefix=""
+            if [[ "$image_no_tag" == */* ]]; then
+              parent_path="${image_no_tag%/*}"
+              namespace_prefix="${parent_path##*/}"
+            fi
+
+            # 构建阿里云目标镜像名
+            target_name="$base_name"
+
+            # 如果存在同名镜像冲突，加上上级命名空间前缀
+            if [[ -n "${duplicate_images[$base_name]}" && -n "$namespace_prefix" ]]; then
+              target_name="${namespace_prefix}_${target_name}"
+            fi
+
+            # 构建 Skopeo 架构参数与架构前缀
+            skopeo_arch_args=()
+            if [[ -n "$platform" ]]; then
+              # 将 linux/amd64 转换为 linux_amd64 作为前缀，保持与原项目一致
+              platform_prefix="${platform//\//_}"
+              target_name="${platform_prefix}_${target_name}"
+
+              os_part="${platform%%/*}"
+              arch_part="${platform#*/}"
+              skopeo_arch_args=(--override-os "$os_part")
+              if [[ "$arch_part" == */* ]]; then
+                variant_part="${arch_part#*/}"
+                arch_part="${arch_part%%/*}"
+                skopeo_arch_args+=(--override-arch "$arch_part" --override-variant "$variant_part")
+              else
+                skopeo_arch_args+=(--override-arch "$arch_part")
+              fi
+            else
+              # 未指定 platform 时，默认拉取 linux/amd64
+              skopeo_arch_args=(--override-os linux --override-arch amd64)
+            fi
+
+            dest_image="${ALIYUN_REGISTRY}/${ALIYUN_NAME_SPACE}/${target_name}:${image_tag}"
+
+            echo "开始流式直推: docker://${src_image} -> docker://${dest_image}"
+            skopeo copy --retry-times 3 "${skopeo_arch_args[@]}" \
+              "docker://${src_image}" \
+              "docker://${dest_image}"
+            echo "✅ 推送完成: ${dest_image}"
+
+          done < images.txt
