@@ -6,14 +6,15 @@ nginx
 # --platform=linux/arm64 xiaoyaliu/alist
 # lscr.io/linuxserver/calibre-web:latest
 # lscr.io/linuxserver/calibre:latest
-allanpk716/chinesesubfinder:latest
+# allanpk716/chinesesubfinder:latest
 # cloudreve/cloudreve:latest
-cloudflare/cloudflared:latest
-#lscr.io/linuxserver/homeassistant:latest
-ghcr.io/tecnativa/docker-socket-proxy:latest
-ghcr.io/gethomepage/homepage:latest
-# ghcr.io/immich-app/immich-server:v1.123.0
-# ghcr.io/immich-app/immich-machine-learning:v1.123.0-openvino
+# cloudflare/cloudflared:latest
+# lscr.io/linuxserver/homeassistant:latest
+# ghcr.io/tecnativa/docker-socket-proxy:latest
+# ghcr.io/gethomepage/homepage:latest
+ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+ghcr.io/immich-app/immich-server:v3
+ghcr.io/immich-app/immich-machine-learning:v3-openvino
 # linuxserver/jackett:latest
 # nyanmisaka/jellyfin
 # fallenbagel/jellyseerr:latest
