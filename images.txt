@@ -9,7 +9,7 @@ nginx
 allanpk716/chinesesubfinder:latest
 # cloudreve/cloudreve:latest
 cloudflare/cloudflared:latest
-lscr.io/linuxserver/homeassistant:latest
+#lscr.io/linuxserver/homeassistant:latest
 ghcr.io/tecnativa/docker-socket-proxy:latest
 ghcr.io/gethomepage/homepage:latest
 # ghcr.io/immich-app/immich-server:v1.123.0
@@ -18,9 +18,9 @@ ghcr.io/gethomepage/homepage:latest
 # nyanmisaka/jellyfin
 # fallenbagel/jellyseerr:latest
 # jxxghp/moviepilot-v2
-lscr.io/linuxserver/qbittorrent
-lscr.io/linuxserver/resilio-sync
-linuxserver/transmission
+#lscr.io/linuxserver/qbittorrent
+#lscr.io/linuxserver/resilio-sync
+#linuxserver/transmission
 # mzz2017/v2raya
 # xiaoyaliu/alist
 # gdy666/lucky
