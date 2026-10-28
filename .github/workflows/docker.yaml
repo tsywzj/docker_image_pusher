@@ -7,9 +7,6 @@ on:
       - 'images.txt'
       - '.github/workflows/docker.yaml'
   workflow_dispatch:
-  # 如需定时同步，可取消下方注释（UTC 时间）
-  # schedule:
-  #   - cron: '0 18 * * *'
 
 jobs:
   push_images:
@@ -38,21 +35,24 @@ jobs:
         run: |
           set -e
 
-          # 1. 预处理 images.txt，检测是否存在同名但不同命名空间的镜像（如 xhofe/alist 与 xiaoyaliu/alist）
+          # 1. 预处理 images.txt，检测是否存在同名但不同命名空间的镜像
           declare -A image_name_count
           declare -A duplicate_images
 
           while IFS= read -r line || [ -n "$line" ]; do
-            # 去除首尾空格与回车符
             line=$(echo "$line" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-            # 跳过空行和注释
             [[ -z "$line" || "$line" =~ ^# ]] && continue
 
-            # 提取镜像部分（去掉 --platform=xxx 参数）
-            image=$(echo "$line" | sed 's/--platform=[^[:space:]]*[[:space:]]*//g' | awk '{print $1}')
-            # 去掉 tag 获取纯路径
-            image_no_tag="${image%%:*}"
-            # 获取最后一级镜像名
+            raw_image=$(echo "$line" | sed 's/--platform=[^[:space:]]*[[:space:]]*//g' | awk '{print $1}')
+            # 先剥离 @sha256:... 部分
+            img_without_digest="${raw_image%%@*}"
+            # 再剥离 :tag 部分（注意避免误切带端口号的私有仓库地址）
+            last_part="${img_without_digest##*/}"
+            if [[ "$last_part" == *:* ]]; then
+              image_no_tag="${img_without_digest%:*}"
+            else
+              image_no_tag="$img_without_digest"
+            fi
             base_name="${image_no_tag##*/}"
 
             image_name_count["$base_name"]=$(( ${image_name_count["$base_name"]:-0} + 1 ))
@@ -75,16 +75,43 @@ jobs:
               platform="${BASH_REMATCH[1]}"
             fi
 
-            # 获取源镜像地址
-            src_image=$(echo "$line" | sed 's/--platform=[^[:space:]]*[[:space:]]*//g' | awk '{print $1}')
+            raw_image=$(echo "$line" | sed 's/--platform=[^[:space:]]*[[:space:]]*//g' | awk '{print $1}')
 
-            # 若未指定 tag，默认补充 :latest
-            if [[ "$src_image" != *:* ]]; then
-              src_image="${src_image}:latest"
+            # 拆分 @digest 与镜像主体
+            digest=""
+            if [[ "$raw_image" == *@* ]]; then
+              digest="${raw_image#*@}"
+              img_without_digest="${raw_image%%@*}"
+            else
+              img_without_digest="$raw_image"
             fi
 
-            image_tag="${src_image##*:}"
-            image_no_tag="${src_image%%:*}"
+            # 拆分镜像路径与 Tag
+            last_part="${img_without_digest##*/}"
+            if [[ "$last_part" == *:* ]]; then
+              image_tag="${last_part#*:}"
+              image_no_tag="${img_without_digest%:*}"
+            else
+              image_tag=""
+              image_no_tag="$img_without_digest"
+            fi
+
+            # 构造 Skopeo 源地址与目标 Tag
+            if [[ -n "$digest" ]]; then
+              # Skopeo 不允许同时带 tag 和 digest，源地址仅保留 @digest
+              src_image="${image_no_tag}@${digest}"
+              # 如果原本没写 tag（纯 @sha256 引用），用 sha256 前 12 位作为目标 tag
+              if [[ -z "$image_tag" ]]; then
+                image_tag="${digest#*:}"
+                image_tag="${image_tag:0:12}"
+              fi
+            else
+              if [[ -z "$image_tag" ]]; then
+                image_tag="latest"
+              fi
+              src_image="${image_no_tag}:${image_tag}"
+            fi
+
             base_name="${image_no_tag##*/}"
 
             # 提取上级命名空间（用于重名镜像加前缀）
@@ -96,8 +123,6 @@ jobs:
 
             # 构建阿里云目标镜像名
             target_name="$base_name"
-
-            # 如果存在同名镜像冲突，加上上级命名空间前缀
             if [[ -n "${duplicate_images[$base_name]}" && -n "$namespace_prefix" ]]; then
               target_name="${namespace_prefix}_${target_name}"
             fi
@@ -105,7 +130,6 @@ jobs:
             # 构建 Skopeo 架构参数与架构前缀
             skopeo_arch_args=()
             if [[ -n "$platform" ]]; then
-              # 将 linux/amd64 转换为 linux_amd64 作为前缀，保持与原项目一致
               platform_prefix="${platform//\//_}"
               target_name="${platform_prefix}_${target_name}"
 
@@ -120,7 +144,6 @@ jobs:
                 skopeo_arch_args+=(--override-arch "$arch_part")
               fi
             else
-              # 未指定 platform 时，默认拉取 linux/amd64
               skopeo_arch_args=(--override-os linux --override-arch amd64)
             fi
 
