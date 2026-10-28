@@ -40,8 +40,20 @@ jobs:
         # remove-codeql: 'true'
         build-mount-path: '/var/lib/docker/'
 
-    - name: Restart docker
-      run: sudo service docker restart
+    #- name: Restart docker
+    #  run: sudo service docker restart
+
+# 替换原有的 Restart docker 步骤为以下内容：
+    - name: Migrate containerd to mounted volume and restart docker
+      run: |
+          sudo systemctl stop docker containerd
+          sudo mkdir -p /var/lib/docker/containerd
+          if [ -d "/var/lib/containerd" ] && [ ! -L "/var/lib/containerd" ]; then
+            sudo mv /var/lib/containerd/* /var/lib/docker/containerd/ 2>/dev/null || true
+            sudo rm -rf /var/lib/containerd
+          fi
+          sudo ln -s /var/lib/docker/containerd /var/lib/containerd
+          sudo systemctl start containerd docker
 
     - name: Free up disk space complete
       run: |
@@ -55,8 +67,7 @@ jobs:
 
     - name: Docker Setup Buildx
       uses: docker/setup-buildx-action@v3
-      with:
-          driver: docker   # 👈 关键：改为 docker 驱动
+      
     - name: Build and push image Aliyun
       run: |
         docker login -u $ALIYUN_REGISTRY_USER -p $ALIYUN_REGISTRY_PASSWORD $ALIYUN_REGISTRY
